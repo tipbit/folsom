@@ -27,7 +27,9 @@
 
 -export([get_system_info/0,
          get_statistics/0,
+         get_statistics/1,
          get_memory/0,
+         get_memory/1,
          get_process_info/0,
          get_port_info/0,
          get_ets_info/0,
@@ -45,8 +47,14 @@
 get_memory() ->
     erlang:memory().
 
+get_memory(N) ->
+    get_memory_(rpc:call(N, erlang, memory, [])).
+
 get_statistics() ->
-    [{Key, convert_statistics(Key, get_statistics(Key))} || Key <- ?STATISTICS].
+    [{Key, convert_statistics(Key, get_statistics_(Key))} || Key <- ?STATISTICS].
+
+get_statistics(N) ->
+    [{Key, convert_statistics(Key, get_statistics_(N, Key))} || Key <- ?STATISTICS].
 
 get_system_info() ->
     [{Key, convert_system_info(Key, get_system_info(Key))} || Key <- ?SYSTEM_INFO].
@@ -65,6 +73,11 @@ get_dets_info() ->
 
 % internal functions
 
+get_memory_(R) when is_list(R) ->
+    R;
+get_memory_(_) ->
+    [].
+
 % wrap system_info and statistics in a try/catch in case keys are missing
 % in old/new versions of erlang
 
@@ -73,7 +86,11 @@ get_system_info(Key) ->
                                     error:badarg->undefined
                                 end.
 
-get_statistics(Key) ->
+get_statistics_(Node, Key) ->
+    try rpc:call(Node, erlang, statistics, [Key]) catch
+                                   _:_->undefined
+                               end.
+get_statistics_(Key) ->
     try erlang:statistics(Key) catch
                                    error:badarg->undefined
                                end.
